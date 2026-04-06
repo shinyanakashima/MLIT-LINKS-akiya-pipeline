@@ -1,0 +1,26 @@
+# 元データ・生成物はリポジトリに置かない（配布は GitHub Releases / R2。docs/06）
+data/
+*.csv
+*.xlsx
+dist/
+*.jsonl
+akiya-*.json
+
+# シークレット
+.env
+*.key
+
+# Python（将来のパイプライン実装用）
+__pycache__/
+*.pyc
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# OS / エディタ
+.DS_Store
+*.swp
+.idea/
+.vscode/

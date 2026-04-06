@@ -1,0 +1,31 @@
+{
+  "$schema_note": "STRONG_POINTS 分類タグ語彙の正準定義。設計は docs/03-tag-taxonomy.md。",
+  "schema_version": "1.0",
+  "intended_model": "claude-sonnet-4-6",
+  "principles": [
+    "PR文中に明示的な根拠がある場合のみ true。推測で true にしない。",
+    "bool 軸は常に true/false（言及なし=false、null は使わない）。",
+    "enum 軸は根拠がなければ unknown。",
+    "軸の追加は後方互換（既存軸の意味変更・リネーム禁止、docs/05）。"
+  ],
+  "axes": [
+    {
+      "key": "renovation_needed",
+      "name_ja": "改修要否",
+      "type": "enum",
+      "values": ["required", "done", "as_is", "unknown"],
+      "definition": "required=要改修/要リフォーム明記, done=改修済/リフォーム済, as_is=現状渡し, unknown=根拠なし"
+    },
+    { "key": "migration_friendly", "name_ja": "移住向き", "type": "boolean", "definition": "移住・田舎暮らし・二地拠点・定住促進等を訴求" },
+    { "key": "business_usable", "name_ja": "事業利用可", "type": "boolean", "definition": "店舗/事務所/民泊/古民家カフェ等の事業転用を訴求" },
+    { "key": "subsidy_mentioned", "name_ja": "補助金言及", "type": "boolean", "definition": "補助金・助成・支援制度・改修補助等への言及" },
+    { "key": "vr_tour", "name_ja": "VR内覧", "type": "boolean", "definition": "VR内覧・オンライン内見・360度・動画内覧等への言及" },
+    { "key": "farmland_attached", "name_ja": "農地付き", "type": "boolean", "definition": "農地・畑・田・家庭菜園が付帯（flags.farmland と相互検証）" },
+    { "key": "kominka", "name_ja": "古民家", "type": "boolean", "definition": "古民家・古民家風・伝統的家屋・茅葺等" },
+    { "key": "view_nature", "name_ja": "眺望・自然", "type": "boolean", "definition": "眺望・海/山/富士山ビュー・自然環境の良さを訴求" },
+    { "key": "near_school", "name_ja": "学校至近", "type": "boolean", "definition": "学校・保育園・通学利便を訴求" },
+    { "key": "near_shopping", "name_ja": "買物利便", "type": "boolean", "definition": "スーパー・商店街・買い物利便を訴求" },
+    { "key": "parking_emphasized", "name_ja": "駐車場訴求", "type": "boolean", "definition": "駐車場（複数台可等）を積極訴求" },
+    { "key": "move_in_ready", "name_ja": "即入居可", "type": "boolean", "definition": "即入居可・家具家電付き等" }
+  ]
+}
