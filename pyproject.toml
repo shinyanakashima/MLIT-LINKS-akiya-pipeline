@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "akiya-pipeline"
+version = "0.1.0"
+description = "国交省 Project LINKS 空き家バンク オープンデータの正規化パイプライン"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+# コア（取得・正規化・突合・JSON出力）は標準ライブラリのみで動作する。
+dependencies = []
+
+[project.optional-dependencies]
+# AI分類（STRONG_POINTS のタグ付け）を使う場合のみ必要。
+classify = ["anthropic>=0.40"]
+# 開発・検証用。
+dev = ["jsonschema>=4"]
+
+[project.scripts]
+akiya-pipeline = "akiya_pipeline.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
