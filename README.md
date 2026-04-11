@@ -18,11 +18,60 @@
 | 自治体職員 | CC-BY 4.0 の整形済みデータを二次利用する |
 | 研究者 | PR文（STRONG_POINTS）の分類タグ付きデータで分析する |
 
-## 現在のフェーズ：設計
+## 現在の状態
 
-このリポジトリは現在**設計ドキュメントのみ**を含みます。実装（パイプラインコード）は
-本設計の合意後に着手します。設計の出発点は、元データの実地調査に基づく
-(1) 正規化スキーマ と (2) PR文分類のタグ体系 です。
+設計（[docs/](docs/)）に基づき、**正規化パイプラインの本体（取得・正規化・突合・JSON出力）を実装済み**。
+実データで件数が設計値と一致し、出力 8,678 件すべてが JSON Schema 検証を通過することを確認しています。
+
+| 機能 | 状態 |
+| --- | --- |
+| BOM安全CSV読込・フィールド内改行対応 | ✅ 実装済み |
+| 正規化（売買/賃貸分離・単位統一・型付け・列名整理） | ✅ 実装済み |
+| 登録×成約の突合（union・`status`生成・`contract`付与） | ✅ 実装済み |
+| JSON / JSON Lines / manifest 出力・CLI | ✅ 実装済み |
+| STRONG_POINTS の AI分類（Claude Sonnet バッチ） | ⏳ 次フェーズ（[docs/03](docs/03-tag-taxonomy.md)） |
+| 差分管理・Releases配布の自動化 | ⏳ 次フェーズ（[docs/05](docs/05-diff-management.md), [docs/06](docs/06-distribution-license.md)） |
+
+## 使い方
+
+```bash
+# CKANから元CSVを取得して、正規化・突合し dist/ に出力
+python -m akiya_pipeline.cli build --fetch --out-dir dist
+
+# 取得済みのローカルCSVを使う場合
+python -m akiya_pipeline.cli build \
+    --registered data/raw/01_tourokubukken.csv \
+    --closed     data/raw/02_seiyakubukken.csv \
+    --out-dir dist
+```
+
+出力（`dist/`）:
+- `akiya-2025.json` … 全件・正規化済み（JSON配列）
+- `akiya-2025.jsonl` … 同（JSON Lines）
+- `manifest.json` … 件数サマリ・スキーマ版・出典・ライセンス
+
+### テスト
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests
+```
+
+実データ統合テスト（件数検証）は `data/raw/` に元CSVがある場合のみ実行されます。
+
+## ディレクトリ構成
+
+```
+src/akiya_pipeline/   パイプライン本体
+  sources.py          CKANリソース定義・取得
+  csv_reader.py       BOM安全CSV読込
+  normalize.py        フィールド正規化（売買/賃貸分離・単位統一・型付け）
+  match.py            登録×成約 突合（union・status・contract）
+  pipeline.py         統合・JSON出力・manifest
+  cli.py              CLI
+schema/               JSON Schema・タグ語彙
+docs/                 設計ドキュメント
+tests/                テスト（unittest、依存ゼロ）
+```
 
 ## ドキュメント
 
