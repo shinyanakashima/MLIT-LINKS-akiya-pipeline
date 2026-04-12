@@ -18,6 +18,25 @@
 | 自治体職員 | CC-BY 4.0 の整形済みデータを二次利用する |
 | 研究者 | PR文（STRONG_POINTS）の分類タグ付きデータで分析する |
 
+## アーキテクチャ（性質）
+
+このリポジトリは **UIを持たないヘッドレスのデータ基盤（パイプライン）** です。画面アプリではなく、
+「信頼できるJSON」を生成・配布する**他4プロジェクトの共通土台**です。
+
+- **UIなし。** 人が見る画面が必要になるのは、この土台の上に乗る他プロジェクト側。将来データ閲覧UIが
+  必要になれば、別物の静的サイトとして切り出す（public→GitHub Pages / private→ConoHa WING）。
+- **計算環境は GitHub Actions。** 常駐プロセスは不要。年1回（＋手動）、下記バッチを1回流すだけ。
+  AI分類もこのビルド時に一括実行し、結果をJSONに焼き込むため、**配布物・利用側ともに実行時API非依存**。
+- **配布は静的データ。** GitHub Releases（大容量化したら Cloudflare R2）。
+
+```
+GitHub Actions（年次 schedule / 手動 dispatch）
+  ① 元CSV取得（CKAN）→ ② 正規化・突合 → ③ STRONG_POINTS をAI分類（Claude Sonnet）
+  → ④ JSON/JSONL/manifest 生成 → ⑤ Releases / R2 へ配布
+```
+
+`ANTHROPIC_API_KEY` が必要なのは Actions のビルド時（③）だけで、Secrets に格納する。
+
 ## 現在の状態
 
 設計（[docs/](docs/)）に基づき、**正規化パイプラインの本体（取得・正規化・突合・JSON出力）を実装済み**。
@@ -29,8 +48,9 @@
 | 正規化（売買/賃貸分離・単位統一・型付け・列名整理） | ✅ 実装済み |
 | 登録×成約の突合（union・`status`生成・`contract`付与） | ✅ 実装済み |
 | JSON / JSON Lines / manifest 出力・CLI | ✅ 実装済み |
-| STRONG_POINTS の AI分類（Claude Sonnet バッチ） | ⏳ 次フェーズ（[docs/03](docs/03-tag-taxonomy.md)） |
-| 差分管理・Releases配布の自動化 | ⏳ 次フェーズ（[docs/05](docs/05-diff-management.md), [docs/06](docs/06-distribution-license.md)） |
+| STRONG_POINTS の AI分類（Claude Sonnet バッチ＋tool use強制出力） | ✅ 実装済み（実行は `ANTHROPIC_API_KEY` が必要） |
+| GitHub Actions（CI＝テスト / Build＝取得・分類・配布） | ✅ 実装済み |
+| 差分管理・Releases自動公開 | ⏳ 次フェーズ（[docs/05](docs/05-diff-management.md), [docs/06](docs/06-distribution-license.md)） |
 
 ## 使い方
 
@@ -50,6 +70,28 @@ python -m akiya_pipeline.cli build \
 - `akiya-2025.jsonl` … 同（JSON Lines）
 - `manifest.json` … 件数サマリ・スキーマ版・出典・ライセンス
 
+### AI分類（STRONG_POINTS のタグ付け）
+
+```bash
+# 送信せず対象件数・リクエスト内容だけ確認（APIキー不要）
+python -m akiya_pipeline.cli classify --in dist/akiya-2025.json --dry-run --limit 1
+
+# 実行（ANTHROPIC_API_KEY が必要。Message Batches で一括分類し tags を付与）
+export ANTHROPIC_API_KEY=...        # 通常は GitHub Actions の Secrets で注入
+pip install "anthropic>=0.40"        # extras: classify
+python -m akiya_pipeline.cli classify --in dist/akiya-2025.json   # 全件
+python -m akiya_pipeline.cli classify --in dist/akiya-2025.json --limit 50  # 試行
+```
+
+`claude-sonnet-4-6` を `temperature=0`＋tool use（出力スキーマ強制）＋prompt caching で実行。
+分類タグ体系は [docs/03](docs/03-tag-taxonomy.md) / [schema/tags.json](schema/tags.json)。
+
+### GitHub Actions
+
+- `.github/workflows/ci.yml` … push/PR でテスト＋スキーマ検証。
+- `.github/workflows/build.yml` … 手動 or 年次で 取得→正規化→突合→AI分類→成果物アップロード。
+  AI分類には Secrets の `ANTHROPIC_API_KEY` を使用。
+
 ### テスト
 
 ```bash
@@ -66,11 +108,13 @@ src/akiya_pipeline/   パイプライン本体
   csv_reader.py       BOM安全CSV読込
   normalize.py        フィールド正規化（売買/賃貸分離・単位統一・型付け）
   match.py            登録×成約 突合（union・status・contract）
+  classify.py         STRONG_POINTS のAI分類（Claude Sonnet バッチ）
   pipeline.py         統合・JSON出力・manifest
-  cli.py              CLI
+  cli.py              CLI（build / classify）
 schema/               JSON Schema・タグ語彙
 docs/                 設計ドキュメント
 tests/                テスト（unittest、依存ゼロ）
+.github/workflows/    CI（テスト）・Build（取得・分類・配布）
 ```
 
 ## ドキュメント
