@@ -13,8 +13,10 @@ license = { text = "MIT" }
 dependencies = []
 
 [project.optional-dependencies]
-# AI分類（STRONG_POINTS のタグ付け）を使う場合のみ必要。
-classify = ["anthropic>=0.40"]
+# AI分類（STRONG_POINTS のタグ付け）を使う場合のみ必要。プロバイダは選択式。
+classify = ["anthropic>=0.40", "openai>=1.50"]
+classify-anthropic = ["anthropic>=0.40"]
+classify-openai = ["openai>=1.50"]
 # 開発・検証用。
 dev = ["jsonschema>=4"]
 

@@ -1,12 +1,24 @@
 # 03. STRONG_POINTS 分類タグ体系
 
 `STRONG_POINTS`（物件のPR自由文）を AI で分類し、構造化タグを付与する。
-分類はビルド時に **Claude Sonnet の Message Batches API** で一括実行し、結果を静的JSONに焼き込む
+分類はビルド時に**バッチで一括実行**し、結果を静的JSONに焼き込む
 （実行時にAPIを叩かない＝再配布物は純粋な静的データ）。
 
 - 対象: 登録 4,566 件 ＋ 成約の非空分（STRONG_POINTS が非空のレコードのみ）。
-- 想定モデル: **Claude Sonnet（`claude-sonnet-4-6`）**。分類精度を重視。
 - 出力: 各レコードの `tags` オブジェクト（[02](02-normalization-schema.md)）。
+- **プロバイダ非依存（プラグイン化）**。タクソノミ・出力規約・タグ整形は共通で、バッチ送信と
+  構造化出力の強制方法だけがプロバイダ実装に閉じる（`src/akiya_pipeline/classify.py`）:
+
+  | 用途 | Anthropic | OpenAI |
+  | --- | --- | --- |
+  | モデル（既定） | `claude-sonnet-4-6` | `gpt-4.1-mini` |
+  | 一括処理 | Message Batches API | Batch API（/v1/chat/completions, 24h） |
+  | 出力スキーマ強制 | tool use（`record_tags`） | Structured Outputs（json_schema, `strict:true`） |
+  | コスト削減 | prompt caching（明示） | 自動 prompt caching |
+  | キー | `ANTHROPIC_API_KEY` | `OPENAI_API_KEY` |
+
+  CLI は `--provider {anthropic,openai}` で切替（既定 anthropic）。配布物は焼き込み済み静的データなので、
+  どちらで分類しても利用側はAPI非依存。`tags.model` に使用モデルを記録する。
 
 ## タグ体系（語彙）
 

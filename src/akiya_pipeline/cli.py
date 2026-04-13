@@ -35,7 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("classify", help="STRONG_POINTS をAI分類して tags を付与")
     c.add_argument("--in", dest="in_path", required=True, help="入力JSON（build の出力）")
     c.add_argument("--out", dest="out_path", help="出力JSON（既定: 入力を上書き）")
-    c.add_argument("--model", default=None, help="使用モデル（既定: claude-sonnet-4-6）")
+    c.add_argument("--provider", default="anthropic", choices=["anthropic", "openai"],
+                   help="AIプロバイダ（既定: anthropic）")
+    c.add_argument("--model", default=None, help="使用モデル（既定: プロバイダ標準）")
     c.add_argument("--limit", type=int, default=None, help="先頭N件のみ分類（試行・コスト制御）")
     c.add_argument("--poll-interval", type=float, default=30.0, help="バッチ完了ポーリング間隔（秒）")
     c.add_argument("--dry-run", action="store_true", help="API送信せず対象件数とサンプルだけ表示")
@@ -79,7 +81,12 @@ def _build(args: argparse.Namespace) -> int:
     return 0
 
 
+_KEY_ENV = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+
+
 def _classify(args: argparse.Namespace) -> int:
+    import os
+
     from . import classify
 
     in_path = Path(args.in_path)
@@ -87,27 +94,27 @@ def _classify(args: argparse.Namespace) -> int:
         print(f"error: 入力JSONが見つかりません: {in_path}", file=sys.stderr)
         return 2
     records = json.loads(in_path.read_text(encoding="utf-8"))
-    model = args.model or classify.DEFAULT_MODEL
+    model = args.model or classify.DEFAULT_MODELS[args.provider]
 
     targets = classify.classifiable(records)
     if args.limit is not None:
         targets = targets[: args.limit]
-    print(f"分類対象: {len(targets)} 件（全{len(records)}件中、STRONG_POINTS 非空）, model={model}")
+    print(f"分類対象: {len(targets)} 件（全{len(records)}件中、STRONG_POINTS 非空）"
+          f", provider={args.provider}, model={model}")
 
     if args.dry_run:
         if targets:
-            sample = classify.build_request_params(targets[0], model=model)
-            print("dry-run: API送信は行いません。サンプルrequest（messagesのみ抜粋）:")
-            print(json.dumps(sample["messages"], ensure_ascii=False, indent=2))
+            preview = classify.request_preview(targets[0], provider=args.provider, model=model)
+            print("dry-run: API送信は行いません。サンプルrequest:")
+            print(json.dumps(preview, ensure_ascii=False, indent=2))
         return 0
 
-    import os
-
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("error: ANTHROPIC_API_KEY が未設定です（--dry-run なら不要）", file=sys.stderr)
+    key_env = _KEY_ENV[args.provider]
+    if not os.environ.get(key_env):
+        print(f"error: {key_env} が未設定です（--dry-run なら不要）", file=sys.stderr)
         return 2
 
-    clf = classify.Classifier(model=model)
+    clf = classify.make_classifier(args.provider, model=model)
     tags_by_id = clf.classify(targets, poll_interval=args.poll_interval)
     n = classify.apply_tags(records, tags_by_id)
     print(f"タグ付与: {n} 件")

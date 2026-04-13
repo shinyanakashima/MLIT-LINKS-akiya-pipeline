@@ -48,7 +48,7 @@ GitHub Actions（年次 schedule / 手動 dispatch）
 | 正規化（売買/賃貸分離・単位統一・型付け・列名整理） | ✅ 実装済み |
 | 登録×成約の突合（union・`status`生成・`contract`付与） | ✅ 実装済み |
 | JSON / JSON Lines / manifest 出力・CLI | ✅ 実装済み |
-| STRONG_POINTS の AI分類（Claude Sonnet バッチ＋tool use強制出力） | ✅ 実装済み（実行は `ANTHROPIC_API_KEY` が必要） |
+| STRONG_POINTS の AI分類（Anthropic / OpenAI プラグイン・バッチ＋構造化出力強制） | ✅ 実装済み（実行は各社APIキーが必要） |
 | GitHub Actions（CI＝テスト / Build＝取得・分類・配布） | ✅ 実装済み |
 | 差分管理・Releases自動公開 | ⏳ 次フェーズ（[docs/05](docs/05-diff-management.md), [docs/06](docs/06-distribution-license.md)） |
 
@@ -72,18 +72,24 @@ python -m akiya_pipeline.cli build \
 
 ### AI分類（STRONG_POINTS のタグ付け）
 
+Anthropic / OpenAI を `--provider` で切替（プラグイン化）。バッチ＋構造化出力強制で一括分類。
+
 ```bash
 # 送信せず対象件数・リクエスト内容だけ確認（APIキー不要）
-python -m akiya_pipeline.cli classify --in dist/akiya-2025.json --dry-run --limit 1
+python -m akiya_pipeline.cli classify --in dist/akiya-2025.json --provider openai --dry-run --limit 1
 
-# 実行（ANTHROPIC_API_KEY が必要。Message Batches で一括分類し tags を付与）
-export ANTHROPIC_API_KEY=...        # 通常は GitHub Actions の Secrets で注入
-pip install "anthropic>=0.40"        # extras: classify
-python -m akiya_pipeline.cli classify --in dist/akiya-2025.json   # 全件
-python -m akiya_pipeline.cli classify --in dist/akiya-2025.json --limit 50  # 試行
+# Anthropic（既定。claude-sonnet-4-6 / Message Batches）
+export ANTHROPIC_API_KEY=...                # 通常は Actions の Secrets で注入
+pip install "anthropic>=0.40"               # extras: classify-anthropic
+python -m akiya_pipeline.cli classify --in dist/akiya-2025.json
+
+# OpenAI（gpt-4.1-mini / Batch API + Structured Outputs）
+export OPENAI_API_KEY=...
+pip install "openai>=1.50"                   # extras: classify-openai
+python -m akiya_pipeline.cli classify --in dist/akiya-2025.json --provider openai --limit 50
 ```
 
-`claude-sonnet-4-6` を `temperature=0`＋tool use（出力スキーマ強制）＋prompt caching で実行。
+`temperature=0`＋出力スキーマ強制（Anthropic=tool use / OpenAI=Structured Outputs）で実行。
 分類タグ体系は [docs/03](docs/03-tag-taxonomy.md) / [schema/tags.json](schema/tags.json)。
 
 ### GitHub Actions
