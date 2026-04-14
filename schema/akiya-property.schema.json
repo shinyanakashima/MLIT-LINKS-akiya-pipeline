@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shinyanakashima/mlit-links-akiya-pipeline/schema/akiya-property.schema.json",
+  "title": "Akiya Property (normalized)",
+  "description": "国交省 Project LINKS 空き家バンク（2025年度）の正規化済み物件レコード。設計は docs/02-normalization-schema.md を参照。",
+  "type": "object",
+  "$comment": "schema_version 1.0。破壊的変更は schema_major を上げる（docs/05）。",
+  "required": ["id", "dataset_year", "source", "status", "deal_type", "use_type", "category_raw", "location", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "description": "物件ID（登録 PROPERTY_NUMBER_ID / 成約 ID）" },
+    "dataset_year": { "type": "integer", "description": "元データの年度", "examples": [2025] },
+    "source": { "enum": ["registered", "closed"], "description": "由来ファイル" },
+    "status": { "enum": ["registered", "closed"], "description": "募集中/成約済（成約フラグ）" },
+    "deal_type": { "enum": ["sale", "rent"], "description": "取引種別（PROPERTY_CATEGORY 接頭 売買/賃貸）" },
+    "use_type": { "enum": ["residential", "commercial", "land"], "description": "用途（PROPERTY_CATEGORY 接尾 居住用/事業用/土地）" },
+    "category_raw": { "type": "string", "description": "元 PROPERTY_CATEGORY" },
+
+    "location": {
+      "type": "object",
+      "required": ["prefecture", "city"],
+      "additionalProperties": false,
+      "properties": {
+        "prefecture": { "type": "string" },
+        "city": { "type": "string" },
+        "point": {
+          "description": "将来のジオコーディング用（GeoJSON Point）。現状の元データには座標がないため通常 null。",
+          "type": ["object", "null"]
+        }
+      }
+    },
+
+    "price_yen": { "type": ["integer", "null"], "minimum": 1, "description": "売買価格（deal_type=sale のみ）。0/非数値→null" },
+    "rent_monthly_yen": { "type": ["integer", "null"], "minimum": 1, "description": "月額賃料（deal_type=rent のみ）。0/非数値→null" },
+    "amount_raw": { "type": ["string", "null"], "description": "元 AMOUNT/RENT" },
+
+    "building": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "construction_year": { "type": ["integer", "null"], "minimum": 1850, "description": "築年（年精度）" },
+        "construction_date_raw": { "type": ["string", "null"] },
+        "structure": { "type": ["string", "null"], "description": "CONSTRUCTION（指定なし→null）" },
+        "layout": { "type": ["string", "null"], "description": "LAYOUT/NUMBER_OF_ROOMS 生値（例 4SLDK）" },
+        "building_area_sqm": { "type": ["number", "null"], "minimum": 0 },
+        "total_units": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+
+    "land": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "land_area_sqm": { "type": ["number", "null"], "minimum": 0 },
+        "land_measurement_method": { "type": ["string", "null"] },
+        "land_category": { "type": ["string", "null"] },
+        "land_ownership": { "type": ["string", "null"] },
+        "city_planning_area": { "type": ["string", "null"] },
+        "use_district": { "type": ["string", "null"] },
+        "floor_area_ratio": { "type": ["number", "null"], "minimum": 0, "description": "容積率（%）" },
+        "building_coverage_ratio": { "type": ["number", "null"], "minimum": 0, "description": "建ぺい率（%）" },
+        "private_road": { "type": ["string", "null"] },
+        "setback": { "type": ["string", "null"] },
+        "connected_roads": { "type": ["string", "null"] }
+      }
+    },
+
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "train_line": { "type": ["string", "null"] },
+        "station": { "type": ["string", "null"] },
+        "station_distance": {
+          "type": ["object", "null"],
+          "description": "駅徒歩距離。登録は単位なし(low)、成約は単位付き(high)。docs/02 単位統一 参照。",
+          "required": ["raw", "minutes", "meters", "unit_confidence"],
+          "additionalProperties": false,
+          "properties": {
+            "raw": { "type": "string" },
+            "minutes": { "type": ["integer", "null"], "minimum": 0 },
+            "meters": { "type": ["integer", "null"], "minimum": 0 },
+            "unit_confidence": { "enum": ["high", "low"] }
+          }
+        }
+      }
+    },
+
+    "flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "farmland": { "type": "boolean", "description": "FARMLAND（有り→true）" },
+        "retail_premises": { "type": "boolean" },
+        "for_office_use": { "type": ["string", "boolean", "null"], "$comment": "値域確認後に型確定（docs/02 未解決事項）" },
+        "interior_customizable": { "type": ["string", "boolean", "null"], "$comment": "同上" }
+      }
+    },
+
+    "utilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "自由記述・生値保持（高欠損）。元の誤記 GUS→gas に統一。",
+      "properties": {
+        "water_supply": { "type": ["string", "null"] },
+        "gas_supply": { "type": ["string", "null"] },
+        "drainage": { "type": ["string", "null"] }
+      }
+    },
+
+    "facilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "自由記述・生値保持（高欠損）。",
+      "properties": {
+        "bath": { "type": ["string", "null"] },
+        "bath_note": { "type": ["string", "null"], "$comment": "成約ファイルのみ" },
+        "toilet": { "type": ["string", "null"] },
+        "toilet_note": { "type": ["string", "null"] },
+        "parking": { "type": ["string", "null"] },
+        "bicycle_parking": { "type": ["string", "null"], "$comment": "成約ファイルのみ" },
+        "garden": { "type": ["string", "null"] },
+        "washer_place": { "type": ["string", "null"] },
+        "stove_heating": { "type": ["string", "null"] }
+      }
+    },
+
+    "nearby_distances": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "自由記述・生値保持（高欠損）。元の誤記 COMBINIENCE→convenience に統一。",
+      "properties": {
+        "elementary_school": { "type": ["string", "null"] },
+        "junior_high_school": { "type": ["string", "null"] },
+        "supermarket": { "type": ["string", "null"] },
+        "convenience_store": { "type": ["string", "null"], "$comment": "成約ファイルのみ" },
+        "drug_store": { "type": ["string", "null"] },
+        "hospital": { "type": ["string", "null"] },
+        "shopping_district": { "type": ["string", "null"] },
+        "playground": { "type": ["string", "null"], "$comment": "成約ファイルのみ" },
+        "bank": { "type": ["string", "null"], "$comment": "成約ファイルのみ" }
+      }
+    },
+
+    "strong_points": { "type": ["string", "null"], "description": "PR文 生値（改行 LF 正規化済み）" },
+
+    "tags": {
+      "type": ["object", "null"],
+      "description": "AI分類結果。STRONG_POINTS が空なら null。詳細は docs/03 / schema/tags.json。",
+      "required": ["schema_version", "model", "labels"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "type": "string" },
+        "model": { "type": "string", "examples": ["claude-sonnet-4-6"] },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "renovation_needed": { "enum": ["required", "done", "as_is", "unknown"] },
+            "migration_friendly": { "type": "boolean" },
+            "business_usable": { "type": "boolean" },
+            "subsidy_mentioned": { "type": "boolean" },
+            "vr_tour": { "type": "boolean" },
+            "farmland_attached": { "type": "boolean" },
+            "kominka": { "type": "boolean" },
+            "view_nature": { "type": "boolean" },
+            "near_school": { "type": "boolean" },
+            "near_shopping": { "type": "boolean" },
+            "parking_emphasized": { "type": "boolean" },
+            "move_in_ready": { "type": "boolean" }
+          }
+        },
+        "evidence": { "type": "object", "additionalProperties": { "type": "string" } },
+        "confidence": { "enum": ["high", "medium", "low"] }
+      }
+    },
+
+    "contract": {
+      "type": ["object", "null"],
+      "description": "成約情報。status=closed のみ非null。docs/04 参照。",
+      "required": ["is_closed", "date", "date_raw", "amount_yen", "amount_raw"],
+      "additionalProperties": false,
+      "properties": {
+        "is_closed": { "type": "boolean" },
+        "date": { "type": ["string", "null"], "format": "date", "description": "ISO 8601。欠損多（~87%）" },
+        "date_raw": { "type": ["string", "null"], "description": "原文 MM/DD/YY" },
+        "amount_yen": { "type": ["integer", "null"], "minimum": 1, "description": "成約額。欠損多（~92%）" },
+        "amount_raw": { "type": ["string", "null"] }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "required": ["source_file", "dataset_year", "source_url", "license"],
+      "additionalProperties": false,
+      "properties": {
+        "source_file": { "type": "string", "examples": ["01_tourokubukken.csv"] },
+        "source_row_index": { "type": ["integer", "null"], "minimum": 0 },
+        "dataset_year": { "type": "integer" },
+        "retrieved_date": { "type": ["string", "null"], "format": "date" },
+        "source_url": { "type": "string", "format": "uri" },
+        "license": { "type": "string", "examples": ["CC-BY-4.0"] }
+      }
+    }
+  }
+}

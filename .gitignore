@@ -1,10 +1,11 @@
 # 元データ・生成物はリポジトリに置かない（配布は GitHub Releases / R2。docs/06）
+# 生成データセットは dist/ に出力されるため dist/ で一括無視する。
+# 注意: `akiya-*.json` のような未アンカーのパターンは schema/akiya-property.schema.json まで
+#       巻き込むため使わない（スラッシュ無しは全階層で一致する）。
 data/
 *.csv
 *.xlsx
 dist/
-*.jsonl
-akiya-*.json
 
 # シークレット
 .env
