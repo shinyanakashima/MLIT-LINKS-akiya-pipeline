@@ -26,6 +26,10 @@
   - CLI `classify`（`--provider` / `--dry-run` / `--limit`）。語彙は schema/tags.json と整合検証。
 - GitHub Actions: `ci.yml`（テスト＋スキーマ検証）、`build.yml`（取得→分類→成果物アップロード）。
 
+### Fixed
+- `classify` 実行後に json / jsonl / manifest を一括再生成するよう修正。従来は `.json` のみ更新し、
+  `.jsonl` にタグが入らず、`manifest.json` の `tagged` が 0 のままで配布物が不整合だった。
+
 ### Notes
 - AI分類の実行には対応キー（`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`、Actions の Secrets）が必要。
   配布物は実行時API非依存。

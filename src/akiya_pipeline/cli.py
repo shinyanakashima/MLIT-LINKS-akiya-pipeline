@@ -119,11 +119,16 @@ def _classify(args: argparse.Namespace) -> int:
     n = classify.apply_tags(records, tags_by_id)
     print(f"タグ付与: {n} 件")
 
+    # json / jsonl / manifest を一括再生成し、配布物間の整合を保つ。
     out_path = Path(args.out_path) if args.out_path else in_path
-    out_path.write_text(
-        json.dumps(records, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    out_dir = out_path.parent
+    pipeline.write_json(records, out_path)
+    pipeline.write_jsonl(records, out_path.with_suffix(".jsonl"))
+    (out_dir / "manifest.json").write_text(
+        json.dumps(pipeline.manifest(records), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
     )
-    print(f"出力先: {out_path}")
+    print(f"出力先: {out_path} / {out_path.with_suffix('.jsonl').name} / manifest.json")
     return 0
 
 
