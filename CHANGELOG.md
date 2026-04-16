@@ -26,6 +26,9 @@
   - CLI `classify`（`--provider` / `--dry-run` / `--limit`）。語彙は schema/tags.json と整合検証。
 - GitHub Actions: `ci.yml`（テスト＋スキーマ検証）、`build.yml`（取得→分類→成果物アップロード）。
 
+- `docs/07-output-spec.md`: データ利用者向けの出力ファイル仕様（配布形式・フィールド・enum・
+  欠損方針・バージョニング・取込例・ライセンス）。README から導線を追加。
+
 ### Fixed
 - `classify` 実行後に json / jsonl / manifest を一括再生成するよう修正。従来は `.json` のみ更新し、
   `.jsonl` にタグが入らず、`manifest.json` の `tagged` が 0 のままで配布物が不整合だった。
