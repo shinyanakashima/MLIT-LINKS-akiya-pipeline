@@ -1,7 +1,7 @@
 name: Build dataset
 
 # ビルド時バッチ（docs/03/05）の計算環境。年1更新を見越し、手動＋年次スケジュールで実行。
-# STRONG_POINTS のAI分類は ANTHROPIC_API_KEY（Secrets）を使ってこのジョブ内で実行する。
+# 取得→正規化→突合→AI分類→（任意で）GitHub Releases 公開 を1ジョブで行う。
 on:
   workflow_dispatch:
     inputs:
@@ -12,14 +12,22 @@ on:
       provider:
         description: "AIプロバイダ"
         type: choice
-        options: [anthropic, openai]
-        default: anthropic
+        options: [openai, anthropic]
+        default: openai
       limit:
         description: "分類件数の上限（試行用。空で全件）"
         type: string
         default: ""
+      publish:
+        description: "成果物を GitHub Releases に公開する"
+        type: boolean
+        default: false
   schedule:
-    - cron: "0 0 5 4 *"  # 毎年4月5日（年次更新の目安）
+    # 毎年4月5日（年次更新の目安）。スケジュール実行は分類＋公開まで自動で行う。
+    - cron: "0 0 5 4 *"
+
+permissions:
+  contents: write  # Releases 作成・タグ付けに必要
 
 jobs:
   build:
@@ -30,11 +38,20 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: メタ情報（年度・スキーマ版・リリースタグ）
+        id: meta
+        run: |
+          YEAR=$(PYTHONPATH=src python -c "from akiya_pipeline import sources; print(sources.DATASET_YEAR)")
+          SV=$(PYTHONPATH=src python -c "import akiya_pipeline; print(akiya_pipeline.SCHEMA_VERSION)")
+          echo "year=$YEAR" >> "$GITHUB_OUTPUT"
+          echo "tag=data-$YEAR.$SV" >> "$GITHUB_OUTPUT"
+
       - name: 取得・正規化・突合
         run: PYTHONPATH=src python -m akiya_pipeline.cli build --fetch --out-dir dist
 
-      - name: AI分類（任意）
-        if: ${{ inputs.classify }}
+      # スケジュール実行（inputs 無し）でも分類するため event 判定を併用。
+      - name: AI分類
+        if: ${{ github.event_name == 'schedule' || inputs.classify }}
         env:
           # プロバイダに応じて使うキーが切り替わる（未使用側は空でよい）。
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -45,13 +62,40 @@ jobs:
           LIMIT_ARG=""
           if [ -n "${{ inputs.limit }}" ]; then LIMIT_ARG="--limit ${{ inputs.limit }}"; fi
           PYTHONPATH=src python -m akiya_pipeline.cli classify \
-            --in dist/akiya-2025.json --provider "${PROVIDER:-anthropic}" $LIMIT_ARG
+            --in dist/akiya-${{ steps.meta.outputs.year }}.json \
+            --provider "${PROVIDER:-openai}" $LIMIT_ARG
 
-      - name: 成果物をアップロード
+      - name: 成果物をアップロード（Artifact）
         uses: actions/upload-artifact@v4
         with:
           name: akiya-dataset
           path: |
-            dist/akiya-2025.json
-            dist/akiya-2025.jsonl
+            dist/akiya-${{ steps.meta.outputs.year }}.json
+            dist/akiya-${{ steps.meta.outputs.year }}.jsonl
             dist/manifest.json
+
+      - name: GitHub Releases に公開
+        if: ${{ github.event_name == 'schedule' || inputs.publish }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          YEAR: ${{ steps.meta.outputs.year }}
+        run: |
+          {
+            echo "国交省 Project LINKS 空き家バンク（${YEAR}年度）正規化済みデータ。"
+            echo ""
+            echo "- ライセンス: CC-BY 4.0（出典表示が必須）"
+            echo "- 仕様: docs/07-output-spec.md"
+            echo ""
+            echo '```json'
+            cat dist/manifest.json
+            echo '```'
+          } > release-notes.md
+          ASSETS="dist/akiya-${YEAR}.json dist/akiya-${YEAR}.jsonl dist/manifest.json schema/akiya-property.schema.json"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $ASSETS --clobber
+          else
+            gh release create "$TAG" $ASSETS \
+              --title "空き家バンク正規化データ ${YEAR}（schema ${TAG#data-${YEAR}.}）" \
+              --notes-file release-notes.md
+          fi

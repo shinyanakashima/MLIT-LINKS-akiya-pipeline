@@ -49,8 +49,9 @@ GitHub Actions（年次 schedule / 手動 dispatch）
 | 登録×成約の突合（union・`status`生成・`contract`付与） | ✅ 実装済み |
 | JSON / JSON Lines / manifest 出力・CLI | ✅ 実装済み |
 | STRONG_POINTS の AI分類（Anthropic / OpenAI プラグイン・バッチ＋構造化出力強制） | ✅ 実装済み（実行は各社APIキーが必要） |
-| GitHub Actions（CI＝テスト / Build＝取得・分類・配布） | ✅ 実装済み |
-| 差分管理・Releases自動公開 | ⏳ 次フェーズ（[docs/05](docs/05-diff-management.md), [docs/06](docs/06-distribution-license.md)） |
+| GitHub Actions（CI＝テスト / Build＝取得・分類） | ✅ 実装済み |
+| GitHub Releases 自動公開（build.yml、年次schedule/手動） | ✅ 実装済み（[docs/06](docs/06-distribution-license.md)） |
+| 差分管理（年次差分検出） | ⏳ 次フェーズ（[docs/05](docs/05-diff-management.md)） |
 
 ## 使い方
 
