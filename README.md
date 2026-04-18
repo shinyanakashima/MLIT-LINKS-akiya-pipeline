@@ -131,6 +131,7 @@ tests/                テスト（unittest、依存ゼロ）
 | ドキュメント | 内容 |
 | --- | --- |
 | **[docs/07-output-spec.md](docs/07-output-spec.md)** | **出力ファイル仕様（利用者向けリファレンス：配布形式・フィールド・enum・欠損・バージョン・取込例・ライセンス）** |
+| [prompts/akiya-dataset.md](prompts/akiya-dataset.md) | 出力仕様を**LLM用プロンプト化**したもの（他プロジェクトのAI/エージェントにそのまま渡せる） |
 | [docs/01-data-source-notes.md](docs/01-data-source-notes.md) | 元データの実地調査メモ（列構成・欠損率・既知の課題の実測） |
 | [docs/02-normalization-schema.md](docs/02-normalization-schema.md) | 正規化スキーマ（統一レコード定義・列マッピング・型・欠損方針・単位統一） |
 | [docs/03-tag-taxonomy.md](docs/03-tag-taxonomy.md) | STRONG_POINTS のAI分類タグ体系と Claude Sonnet バッチ設計 |

@@ -5,6 +5,7 @@
 
 - 正準スキーマ（機械可読）: [`schema/akiya-property.schema.json`](../schema/akiya-property.schema.json)（JSON Schema Draft 2020-12）
 - タグ語彙: [`schema/tags.json`](../schema/tags.json) ／ 設計: [03](03-tag-taxonomy.md)
+- **LLM/エージェントに渡す用**: [`prompts/akiya-dataset.md`](../prompts/akiya-dataset.md)（本仕様をプロンプト化したもの）
 - ライセンス: **CC-BY 4.0**（出典表示が必須。§9）
 
 ---

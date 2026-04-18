@@ -30,6 +30,8 @@
   欠損方針・バージョニング・取込例・ライセンス）。README から導線を追加。
 - `build.yml`: 本番運用向けに更新。schedule 実行でも分類＋公開を自動化、provider 既定を openai に。
   成果物を GitHub Releases へ公開（タグ `data-<year>.<schema>`、手動は publish 入力で制御）。
+- `prompts/akiya-dataset.md`: 出力仕様を LLM/エージェント用プロンプトにまとめたもの。
+  他プロジェクトに配布して利用側AIへ渡せる。docs/07 と同期。
 
 ### Fixed
 - `classify` 実行後に json / jsonl / manifest を一括再生成するよう修正。従来は `.json` のみ更新し、
