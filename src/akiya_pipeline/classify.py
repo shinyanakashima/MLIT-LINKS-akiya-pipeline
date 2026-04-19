@@ -149,6 +149,26 @@ def apply_tags(records: list[dict[str, Any]], tags_by_id: dict[str, dict[str, An
     return n
 
 
+def reuse_prior_tags(
+    targets: list[dict[str, Any]], prev_records: list[dict[str, Any]]
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """前年タグを引き継ぐ（docs/05）。
+
+    PR文が前年と同一の物件は前年の tags を再利用し、それ以外（新規・PR文変更）だけを
+    再分類対象として返す。戻り値 = (再利用する {id: tags}, 再分類が必要な targets)。
+    """
+    prev = {r["id"]: r for r in prev_records}
+    reused: dict[str, dict[str, Any]] = {}
+    todo: list[dict[str, Any]] = []
+    for t in targets:
+        p = prev.get(t["id"])
+        if p and p.get("tags") and (p.get("strong_points") or "") == (t.get("strong_points") or ""):
+            reused[t["id"]] = p["tags"]
+        else:
+            todo.append(t)
+    return reused, todo
+
+
 def request_preview(record: dict[str, Any], *, provider: str, model: str) -> dict[str, Any]:
     """dry-run 表示用のリクエスト概要（API送信はしない）。"""
     return {

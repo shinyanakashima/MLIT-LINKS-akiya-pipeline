@@ -40,13 +40,22 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--model", default=None, help="使用モデル（既定: プロバイダ標準）")
     c.add_argument("--limit", type=int, default=None, help="先頭N件のみ分類（試行・コスト制御）")
     c.add_argument("--poll-interval", type=float, default=30.0, help="バッチ完了ポーリング間隔（秒）")
+    c.add_argument("--prev", dest="prev_path", default=None,
+                   help="前年のタグ付きJSON。PR文が同一の物件はタグを引き継ぎ再分類しない")
     c.add_argument("--dry-run", action="store_true", help="API送信せず対象件数とサンプルだけ表示")
+
+    d = sub.add_parser("diff", help="前年版との年次差分を検出")
+    d.add_argument("--prev", dest="prev_path", required=True, help="前年のJSON")
+    d.add_argument("--curr", dest="curr_path", required=True, help="当年のJSON")
+    d.add_argument("--out", dest="out_path", help="差分JSONの出力先（既定: 標準出力にサマリのみ）")
 
     args = parser.parse_args(argv)
     if args.command == "build":
         return _build(args)
     if args.command == "classify":
         return _classify(args)
+    if args.command == "diff":
+        return _diff(args)
     return 1
 
 
@@ -99,8 +108,18 @@ def _classify(args: argparse.Namespace) -> int:
     targets = classify.classifiable(records)
     if args.limit is not None:
         targets = targets[: args.limit]
-    print(f"分類対象: {len(targets)} 件（全{len(records)}件中、STRONG_POINTS 非空）"
-          f", provider={args.provider}, model={model}")
+
+    # 前年タグの引き継ぎ（PR文が同一なら再分類しない。docs/05）
+    reused: dict = {}
+    if args.prev_path:
+        prev_records = json.loads(Path(args.prev_path).read_text(encoding="utf-8"))
+        reused, targets = classify.reuse_prior_tags(targets, prev_records)
+
+    msg = (f"分類対象: {len(targets)} 件（全{len(records)}件中、STRONG_POINTS 非空）"
+           f", provider={args.provider}, model={model}")
+    if args.prev_path:
+        msg += f" / 前年から引き継ぎ {len(reused)} 件"
+    print(msg)
 
     if args.dry_run:
         if targets:
@@ -109,13 +128,15 @@ def _classify(args: argparse.Namespace) -> int:
             print(json.dumps(preview, ensure_ascii=False, indent=2))
         return 0
 
-    key_env = _KEY_ENV[args.provider]
-    if not os.environ.get(key_env):
-        print(f"error: {key_env} が未設定です（--dry-run なら不要）", file=sys.stderr)
-        return 2
+    tags_by_id = dict(reused)
+    if targets:
+        key_env = _KEY_ENV[args.provider]
+        if not os.environ.get(key_env):
+            print(f"error: {key_env} が未設定です（--dry-run なら不要）", file=sys.stderr)
+            return 2
+        clf = classify.make_classifier(args.provider, model=model)
+        tags_by_id.update(clf.classify(targets, poll_interval=args.poll_interval))
 
-    clf = classify.make_classifier(args.provider, model=model)
-    tags_by_id = clf.classify(targets, poll_interval=args.poll_interval)
     n = classify.apply_tags(records, tags_by_id)
     print(f"タグ付与: {n} 件")
 
@@ -129,6 +150,21 @@ def _classify(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
     print(f"出力先: {out_path} / {out_path.with_suffix('.jsonl').name} / manifest.json")
+    return 0
+
+
+def _diff(args: argparse.Namespace) -> int:
+    from . import diff as diffmod
+
+    prev = json.loads(Path(args.prev_path).read_text(encoding="utf-8"))
+    curr = json.loads(Path(args.curr_path).read_text(encoding="utf-8"))
+    result = diffmod.diff_datasets(prev, curr)
+    print("差分:", diffmod.summary_line(result))
+    if args.out_path:
+        Path(args.out_path).write_text(
+            json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"出力先: {args.out_path}")
     return 0
 
 

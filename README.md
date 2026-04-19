@@ -51,7 +51,7 @@ GitHub Actions（年次 schedule / 手動 dispatch）
 | STRONG_POINTS の AI分類（Anthropic / OpenAI プラグイン・バッチ＋構造化出力強制） | ✅ 実装済み（実行は各社APIキーが必要） |
 | GitHub Actions（CI＝テスト / Build＝取得・分類） | ✅ 実装済み |
 | GitHub Releases 自動公開（build.yml、年次schedule/手動） | ✅ 実装済み（[docs/06](docs/06-distribution-license.md)） |
-| 差分管理（年次差分検出） | ⏳ 次フェーズ（[docs/05](docs/05-diff-management.md)） |
+| 差分管理（年次差分検出・前年タグ引き継ぎ） | ✅ 実装済み（[docs/05](docs/05-diff-management.md)） |
 
 ## 使い方
 
@@ -93,11 +93,27 @@ python -m akiya_pipeline.cli classify --in dist/akiya-2025.json --provider opena
 `temperature=0`＋出力スキーマ強制（Anthropic=tool use / OpenAI=Structured Outputs）で実行。
 分類タグ体系は [docs/03](docs/03-tag-taxonomy.md) / [schema/tags.json](schema/tags.json)。
 
+```bash
+# 前年タグの引き継ぎ（PR文が同一の物件は再分類しない＝コスト削減）
+python -m akiya_pipeline.cli classify --in dist/akiya-2026.json --provider openai \
+    --prev akiya-2025.json
+```
+
+### 年次差分（差分管理）
+
+```bash
+# 前年版との差分を検出（added/removed/status_changed/field_changed）
+python -m akiya_pipeline.cli diff --prev akiya-2025.json --curr akiya-2026.json \
+    --out dist/diff-2025-2026.json
+```
+
+詳細は [docs/05](docs/05-diff-management.md)。年次 Build ではこの差分を Release に同梱する。
+
 ### GitHub Actions
 
 - `.github/workflows/ci.yml` … push/PR でテスト＋スキーマ検証。
-- `.github/workflows/build.yml` … 手動 or 年次で 取得→正規化→突合→AI分類→成果物アップロード。
-  AI分類には Secrets の `ANTHROPIC_API_KEY` を使用。
+- `.github/workflows/build.yml` … 手動 or 年次で 取得→正規化→突合→（前年タグ引継ぎ）AI分類→
+  年次差分→Releases公開。AI分類には Secrets のAPIキーを使用。
 
 ### テスト
 

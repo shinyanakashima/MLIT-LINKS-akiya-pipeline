@@ -32,6 +32,8 @@
   成果物を GitHub Releases へ公開（タグ `data-<year>.<schema>`、手動は publish 入力で制御）。
 - `prompts/akiya-dataset.md`: 出力仕様を LLM/エージェント用プロンプトにまとめたもの。
   他プロジェクトに配布して利用側AIへ渡せる。docs/07 と同期。
+- 差分管理（`diff.py` / CLI `diff`）: 前年版と id 単位で added/removed/status_changed/field_changed
+  を検出し diff JSON を出力。`classify --prev` で PR文が同一の物件は前年タグを引き継ぎ再分類を省く。
 
 ### Fixed
 - `classify` 実行後に json / jsonl / manifest を一括再生成するよう修正。従来は `.json` のみ更新し、
