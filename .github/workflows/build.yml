@@ -49,6 +49,23 @@ jobs:
       - name: 取得・正規化・突合
         run: PYTHONPATH=src python -m akiya_pipeline.cli build --fetch --out-dir dist
 
+      # 前年リリースの成果物を取得（差分・タグ引き継ぎ用）。初回は存在しないので best-effort。
+      - name: 前年リリース取得（任意）
+        id: prev
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p prev
+          if gh release download --pattern 'akiya-*.json' --dir prev 2>/dev/null; then
+            P=$(ls prev/akiya-*.json | head -1)
+            echo "path=$P" >> "$GITHUB_OUTPUT"
+            echo "year=$(basename "$P" | sed -E 's/.*akiya-([0-9]+)\.json/\1/')" >> "$GITHUB_OUTPUT"
+            echo "前年リリース: $P"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "前年リリースなし（初回）"
+          fi
+
       # スケジュール実行（inputs 無し）でも分類するため event 判定を併用。
       - name: AI分類
         if: ${{ github.event_name == 'schedule' || inputs.classify }}
@@ -57,13 +74,26 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PROVIDER: ${{ inputs.provider }}
+          PREV: ${{ steps.prev.outputs.path }}
         run: |
           python -m pip install --quiet "anthropic>=0.40" "openai>=1.50"
           LIMIT_ARG=""
           if [ -n "${{ inputs.limit }}" ]; then LIMIT_ARG="--limit ${{ inputs.limit }}"; fi
+          PREV_ARG=""
+          if [ -n "$PREV" ]; then PREV_ARG="--prev $PREV"; fi
           PYTHONPATH=src python -m akiya_pipeline.cli classify \
             --in dist/akiya-${{ steps.meta.outputs.year }}.json \
-            --provider "${PROVIDER:-openai}" $LIMIT_ARG
+            --provider "${PROVIDER:-openai}" $LIMIT_ARG $PREV_ARG
+
+      # 前年版がある場合のみ差分を生成（失敗しても本処理は止めない）。
+      - name: 年次差分
+        if: ${{ steps.prev.outputs.path != '' }}
+        continue-on-error: true
+        run: |
+          PYTHONPATH=src python -m akiya_pipeline.cli diff \
+            --prev "${{ steps.prev.outputs.path }}" \
+            --curr dist/akiya-${{ steps.meta.outputs.year }}.json \
+            --out dist/diff-${{ steps.prev.outputs.year }}-${{ steps.meta.outputs.year }}.json
 
       - name: 成果物をアップロード（Artifact）
         uses: actions/upload-artifact@v4
@@ -73,6 +103,7 @@ jobs:
             dist/akiya-${{ steps.meta.outputs.year }}.json
             dist/akiya-${{ steps.meta.outputs.year }}.jsonl
             dist/manifest.json
+            dist/diff-*.json
 
       - name: GitHub Releases に公開
         if: ${{ github.event_name == 'schedule' || inputs.publish }}
@@ -90,8 +121,17 @@ jobs:
             echo '```json'
             cat dist/manifest.json
             echo '```'
+            for f in dist/diff-*.json; do
+              [ -e "$f" ] || continue
+              echo ""
+              echo "前年差分（$(basename "$f")）:"
+              echo '```json'
+              python -c "import json,sys; print(json.dumps(json.load(open('$f'))['summary'], ensure_ascii=False, indent=2))"
+              echo '```'
+            done
           } > release-notes.md
           ASSETS="dist/akiya-${YEAR}.json dist/akiya-${YEAR}.jsonl dist/manifest.json schema/akiya-property.schema.json"
+          for f in dist/diff-*.json; do [ -e "$f" ] && ASSETS="$ASSETS $f"; done
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" $ASSETS --clobber
           else

@@ -34,6 +34,7 @@
   他プロジェクトに配布して利用側AIへ渡せる。docs/07 と同期。
 - 差分管理（`diff.py` / CLI `diff`）: 前年版と id 単位で added/removed/status_changed/field_changed
   を検出し diff JSON を出力。`classify --prev` で PR文が同一の物件は前年タグを引き継ぎ再分類を省く。
+- `build.yml`: 前年リリースを取得して タグ引き継ぎ＋年次差分生成 を行い、差分を Release に同梱する。
 
 ### Fixed
 - `classify` 実行後に json / jsonl / manifest を一括再生成するよう修正。従来は `.json` のみ更新し、
