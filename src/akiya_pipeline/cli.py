@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -30,7 +31,16 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--registered", help="登録物件CSVのパス（--fetch 時は不要）")
     b.add_argument("--closed", help="成約物件CSVのパス（--fetch 時は不要）")
     b.add_argument("--out-dir", default="dist", help="出力ディレクトリ")
-    b.add_argument("--year", type=int, default=sources.DATASET_YEAR, help="出力ファイル名の年度")
+    # 年次更新の上書き（CLI > 環境変数 AKIYA_* > コード既定）。列構成が同じならコード編集不要。
+    b.add_argument("--year", type=int,
+                   default=int(os.environ.get("AKIYA_YEAR") or sources.DATASET_YEAR),
+                   help="対象年度（出力名・provenance に反映）")
+    b.add_argument("--dataset-page", default=os.environ.get("AKIYA_DATASET_PAGE"),
+                   help="出典データセットページURL（年次で変わる）")
+    b.add_argument("--registered-url", default=os.environ.get("AKIYA_REGISTERED_URL"),
+                   help="登録物件CSVのダウンロードURL（--fetch 時の上書き）")
+    b.add_argument("--closed-url", default=os.environ.get("AKIYA_CLOSED_URL"),
+                   help="成約物件CSVのダウンロードURL（--fetch 時の上書き）")
 
     c = sub.add_parser("classify", help="STRONG_POINTS をAI分類して tags を付与")
     c.add_argument("--in", dest="in_path", required=True, help="入力JSON（build の出力）")
@@ -60,6 +70,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _build(args: argparse.Namespace) -> int:
+    # 年度・取得URL・出典の上書きを反映（normalize/manifest が実行時に参照する）。
+    sources.configure(
+        year=args.year,
+        dataset_page=args.dataset_page,
+        registered_url=args.registered_url,
+        closed_url=args.closed_url,
+    )
     raw_dir = Path(args.raw_dir)
     if args.fetch:
         reg = sources.download(sources.REGISTERED, raw_dir)

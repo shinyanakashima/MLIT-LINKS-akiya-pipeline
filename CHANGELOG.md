@@ -35,6 +35,9 @@
 - 差分管理（`diff.py` / CLI `diff`）: 前年版と id 単位で added/removed/status_changed/field_changed
   を検出し diff JSON を出力。`classify --prev` で PR文が同一の物件は前年タグを引き継ぎ再分類を省く。
 - `build.yml`: 前年リリースを取得して タグ引き継ぎ＋年次差分生成 を行い、差分を Release に同梱する。
+- 年次更新を入力駆動化: `sources.configure()` と `build` の `--year/--registered-url/--closed-url/
+  --dataset-page`（環境変数 `AKIYA_*` でも可）、build.yml の同名入力。列構成が同じならコード編集なしで
+  年度更新できる。docs/05 に運用ランブックを追記。
 
 ### Fixed
 - `classify` 実行後に json / jsonl / manifest を一括再生成するよう修正。従来は `.json` のみ更新し、

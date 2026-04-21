@@ -27,17 +27,33 @@
    - 破壊的変更時は移行メモを `CHANGELOG.md` に記載。
 3. **欠損方針は変えない**: 欠損は null。補完を始める場合は別フィールド（`*_imputed`）で、生値を壊さない。
 
-## 年次更新フロー（想定）
+## 年次更新の実行手順（運用ランブック）
 
-```
-1. 元データ取得      … CKAN から当年度CSVを取得。取得日時・元URL・チェックサムを記録。
-2. スナップショット   … raw を年度別に保管（リポジトリには置かず Release/別ストレージ。.gitignore）。
-3. 正規化           … [02][04] に従い統一JSONを生成。
-4. 差分検出         … 前年版と id 単位で diff（後述）。
-5. AI分類（差分のみ） … 新規・PR文変更分のみ Claude Sonnet で再分類。前年タグを id で引き継ぎ。
-6. 検証            … [04] の整合チェック＋スキーマ検証（JSON Schema）＋件数回帰。
-7. 配布            … Release `data-<year>.<schema>` を作成（[06]）。
-```
+取得先（年度ごとに変わる）は**コードに固定せず、入力で上書き**できる。列構成が同じなら
+**コード編集は不要**で、「Build dataset」を新しい値で実行するだけ。
+
+### 手順
+1. **新年度データのURLを調べる。** geospatial.jp で当年度の「Project LINKS 空き家バンク」を開き、
+   登録CSV・成約CSVの**ダウンロードURL**と**データセットページURL**を控える。
+2. **「Build dataset」ワークフローを手動実行**（Actions → Run workflow）し、入力に:
+   - `year` = 当年度（例 `2026`）
+   - `registered_url` / `closed_url` = 1 のCSV URL
+   - `dataset_page` = 出典ページURL
+   - `provider` = `openai`（既定）、`publish` = `true`
+   - これだけで、取得→正規化→突合→**前年タグ引き継ぎ**→**前年差分生成**→Release `data-<year>.<schema>` 公開 まで自動。
+3. **検証。** Release ノートの差分サマリ・`manifest.json` の件数、新規/変更分のタグを数件確認。
+
+> CLI 単体でも同様: `akiya-pipeline build --fetch --year 2026 --registered-url … --closed-url … --dataset-page …`
+> （環境変数 `AKIYA_YEAR` / `AKIYA_REGISTERED_URL` / `AKIYA_CLOSED_URL` / `AKIYA_DATASET_PAGE` でも可）。
+
+### 列構成が変わっていた場合（例外対応）
+元データの列が増減・改名していたら、入力上書きだけでは不足。`normalize.py` / `match.py` を調整し、
+**後方互換でなければ `schema_version`（メジャー）を上げる**（上記「不変条件」）。テスト緑・JSON Schema 検証を確認してから配布。
+
+### 年次スケジュール（自動）について
+`build.yml` の `schedule`（毎年4/5）は**コード既定の取得先**で走る。当年度のURLは年で変わるため、
+**スケジュールに任せきりにせず、上記2の手動実行（新URL指定）を基本**とする
+（または事前に既定値を当年度へ更新しておく）。
 
 ## 差分検出（id 単位）
 

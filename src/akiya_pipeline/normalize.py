@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .sources import DATASET_YEAR, DATASET_PAGE, LICENSE
+from . import sources  # 年度・出典は configure() で上書きされ得るため実行時に参照する
 
 # ── 小さなパーサ ──────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ def parse_construction_year(value: str | None) -> int | None:
     if not m:
         return None
     year = int(m.group(1))
-    return year if 1850 <= year <= DATASET_YEAR else None
+    return year if 1850 <= year <= sources.DATASET_YEAR else None
 
 
 # ── 駅距離（単位不統一。docs/02 単位統一） ─────────────────────
@@ -149,7 +149,7 @@ def normalize(row: dict[str, str], *, source: str, row_index: int | None = None)
 
     return {
         "id": clean_str(g("PROPERTY_NUMBER_ID") or g("ID")),
-        "dataset_year": DATASET_YEAR,
+        "dataset_year": sources.DATASET_YEAR,
         "source": source,
         "status": None,  # match で確定
         "deal_type": deal_type,
@@ -230,10 +230,10 @@ def normalize(row: dict[str, str], *, source: str, row_index: int | None = None)
         "provenance": {
             "source_file": "01_tourokubukken.csv" if source == "registered" else "02_seiyakubukken.csv",
             "source_row_index": row_index,
-            "dataset_year": DATASET_YEAR,
+            "dataset_year": sources.DATASET_YEAR,
             "retrieved_date": None,
-            "source_url": DATASET_PAGE,
-            "license": LICENSE,
+            "source_url": sources.DATASET_PAGE,
+            "license": sources.LICENSE,
         },
     }
 

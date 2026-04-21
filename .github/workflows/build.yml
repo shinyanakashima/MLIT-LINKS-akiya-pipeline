@@ -22,6 +22,22 @@ on:
         description: "成果物を GitHub Releases に公開する"
         type: boolean
         default: false
+      year:
+        description: "対象年度（年次更新。空でコード既定）"
+        type: string
+        default: ""
+      registered_url:
+        description: "登録物件CSVのURL（年次更新。空でコード既定）"
+        type: string
+        default: ""
+      closed_url:
+        description: "成約物件CSVのURL（年次更新。空でコード既定）"
+        type: string
+        default: ""
+      dataset_page:
+        description: "出典データセットページURL（年次更新。空でコード既定）"
+        type: string
+        default: ""
   schedule:
     # 毎年4月5日（年次更新の目安）。スケジュール実行は分類＋公開まで自動で行う。
     - cron: "0 0 5 4 *"
@@ -41,12 +57,21 @@ jobs:
       - name: メタ情報（年度・スキーマ版・リリースタグ）
         id: meta
         run: |
-          YEAR=$(PYTHONPATH=src python -c "from akiya_pipeline import sources; print(sources.DATASET_YEAR)")
+          YEAR="${{ inputs.year }}"
+          if [ -z "$YEAR" ]; then
+            YEAR=$(PYTHONPATH=src python -c "from akiya_pipeline import sources; print(sources.DATASET_YEAR)")
+          fi
           SV=$(PYTHONPATH=src python -c "import akiya_pipeline; print(akiya_pipeline.SCHEMA_VERSION)")
           echo "year=$YEAR" >> "$GITHUB_OUTPUT"
           echo "tag=data-$YEAR.$SV" >> "$GITHUB_OUTPUT"
 
       - name: 取得・正規化・突合
+        env:
+          # 年次更新の上書き（空ならコード既定が使われる）。
+          AKIYA_YEAR: ${{ steps.meta.outputs.year }}
+          AKIYA_REGISTERED_URL: ${{ inputs.registered_url }}
+          AKIYA_CLOSED_URL: ${{ inputs.closed_url }}
+          AKIYA_DATASET_PAGE: ${{ inputs.dataset_page }}
         run: PYTHONPATH=src python -m akiya_pipeline.cli build --fetch --out-dir dist
 
       # 前年リリースの成果物を取得（差分・タグ引き継ぎ用）。初回は存在しないので best-effort。
